@@ -1,0 +1,144 @@
+:root {
+  --fundo: #eef1f7;
+  --papel: #ffffff;
+  --tinta: #1a2038;
+  --tinta-suave: #5a6280;
+  --linha: #d5dae8;
+  --azul: #2447d6;
+  --azul-escuro: #1832a0;
+  --amarelo: #ffc928;
+  --vermelho: #d63a3a;
+  --verde: #1f8a5b;
+  --raio: 14px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--fundo);
+  color: var(--tinta);
+  font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  line-height: 1.5;
+}
+
+a { color: var(--azul); }
+:focus-visible { outline: 3px solid var(--amarelo); outline-offset: 2px; }
+
+/* Topo */
+.topo {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: center; justify-content: space-between;
+  padding: 14px 24px;
+  background: var(--tinta);
+}
+.marca { color: #fff; font-weight: 800; font-size: 1.2rem; text-decoration: none; letter-spacing: -0.01em; }
+.topo nav { display: flex; gap: 6px; }
+.topo nav a {
+  color: #c9d0ea; text-decoration: none; padding: 6px 12px; border-radius: 999px; font-weight: 600; font-size: .95rem;
+}
+.topo nav a:hover { color: #fff; }
+.topo nav a.ativo { background: var(--amarelo); color: var(--tinta); }
+
+main { max-width: 960px; margin: 0 auto; padding: 32px 20px 64px; outline: none; }
+
+h1 { font-size: clamp(1.8rem, 5vw, 2.6rem); line-height: 1.1; margin: 0 0 8px; font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.25rem; margin: 0 0 12px; }
+.sub { color: var(--tinta-suave); margin: 0 0 28px; max-width: 60ch; }
+
+.cabecalho-pagina { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: flex-end; margin-bottom: 8px; }
+
+/* Botões */
+.btn {
+  font: inherit; font-weight: 600; cursor: pointer;
+  border: 2px solid var(--tinta); background: var(--papel); color: var(--tinta);
+  padding: 9px 16px; border-radius: 10px; text-decoration: none; display: inline-block;
+}
+.btn:hover { background: var(--tinta); color: #fff; }
+.btn.principal { background: var(--azul); border-color: var(--azul); color: #fff; }
+.btn.principal:hover { background: var(--azul-escuro); border-color: var(--azul-escuro); }
+.btn.perigo { border-color: var(--vermelho); color: var(--vermelho); }
+.btn.perigo:hover { background: var(--vermelho); color: #fff; }
+.btn.pequeno { padding: 6px 12px; font-size: .9rem; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Cartas de torneio */
+.grade { display: grid; gap: 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); }
+
+.carta {
+  background: var(--papel);
+  border: 2px solid var(--tinta);
+  border-radius: var(--raio);
+  overflow: hidden;
+  display: flex; flex-direction: column;
+}
+.carta-topo {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  background: var(--amarelo);
+  border-bottom: 2px solid var(--tinta);
+  padding: 10px 16px;
+  font-weight: 800;
+}
+.carta-corpo { padding: 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.carta-corpo h3 { margin: 0; font-size: 1.3rem; line-height: 1.2; }
+.carta-corpo p { margin: 0; color: var(--tinta-suave); }
+.regras { white-space: pre-wrap; background: var(--fundo); border-radius: 10px; padding: 10px 12px; font-size: .95rem; color: var(--tinta); }
+.rotulo { font-weight: 600; font-size: .85rem; color: var(--tinta-suave); margin-bottom: 4px; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 16px; border-top: 1px solid var(--linha); background: #f8f9fc; }
+
+.selo { padding: 3px 10px; border-radius: 999px; font-size: .85rem; font-weight: 600; background: var(--tinta); color: #fff; white-space: nowrap; }
+.selo.encerrado { background: var(--tinta-suave); }
+
+/* Inscritos */
+details.inscritos { border-top: 1px solid var(--linha); padding: 10px 16px; }
+details.inscritos summary { cursor: pointer; font-weight: 600; }
+.tabela-wrap { overflow-x: auto; margin-top: 10px; }
+table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--linha); }
+th { color: var(--tinta-suave); font-weight: 600; font-size: .85rem; }
+
+/* Formulários */
+.painel-form {
+  background: var(--papel); border: 2px solid var(--tinta); border-radius: var(--raio);
+  padding: 20px; max-width: 620px;
+}
+label { display: block; font-weight: 600; margin-bottom: 14px; }
+label small { font-weight: 400; color: var(--tinta-suave); }
+input, textarea {
+  display: block; width: 100%; margin-top: 6px;
+  font: inherit; color: inherit;
+  padding: 10px 12px; border: 2px solid var(--linha); border-radius: 10px; background: #fff;
+}
+input:focus, textarea:focus { border-color: var(--azul); outline: none; }
+textarea { min-height: 110px; resize: vertical; }
+.linha-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .linha-2 { grid-template-columns: 1fr; } }
+.erro { color: var(--vermelho); font-weight: 600; margin: 0 0 12px; min-height: 1.4em; }
+
+/* Vazio */
+.vazio {
+  background: var(--papel); border: 2px dashed var(--linha); border-radius: var(--raio);
+  padding: 36px 20px; text-align: center; color: var(--tinta-suave);
+}
+.vazio p { margin: 0 0 14px; }
+
+.voltar { display: inline-block; margin-bottom: 16px; font-weight: 600; }
+.sucesso { background: #e3f5ec; border: 2px solid var(--verde); color: #0f5a3a; padding: 14px 16px; border-radius: 10px; font-weight: 600; }
+
+/* Aviso */
+#toast {
+  position: fixed; left: 50%; bottom: 24px; transform: translate(-50%, 20px);
+  background: var(--tinta); color: #fff; padding: 10px 18px; border-radius: 10px; font-weight: 600;
+  opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+}
+#toast.visivel { opacity: 1; transform: translate(-50%, 0); }
+
+@media (prefers-reduced-motion: reduce) { #toast { transition: none; } }
+
+/* Vagas e lista pública */
+.aviso { margin: 0 0 14px; padding: 8px 12px; background: #fff6d6; border-left: 4px solid var(--amarelo); border-radius: 6px; font-weight: 600; }
+label small { display: block; margin-top: 6px; }
+.lista-publica { margin-top: 32px; max-width: 620px; }
+.lista-publica h2 { margin-top: 20px; }
+.lista-publica ol { margin: 0; padding-left: 1.6em; }
+.lista-publica li { padding: 4px 0; border-bottom: 1px solid var(--linha); }
