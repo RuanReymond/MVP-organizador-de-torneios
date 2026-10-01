@@ -11,14 +11,25 @@ const ESPERA = 5; // vagas fixas de lista de espera em todo torneio
 /* ---------- "Banco de dados" ---------- */
 const db = {
   listar() {
-    try { return (JSON.parse(localStorage.getItem(CHAVE)) || []).map(t => ({ maxJogadores: 32, ...t })); }
-    catch { return []; }
+    try {
+      const bruto = JSON.parse(localStorage.getItem(CHAVE)) || [];
+      let mudou = false;
+      const lista = bruto.map(t => {
+        const novo = { maxJogadores: 32, status: "ativo", ...t };
+        if (!novo.codigo) { novo.codigo = gerarCodigo(); mudou = true; }
+        if (!novo.status) { novo.status = "ativo"; mudou = true; }
+        novo.inscritos = (novo.inscritos || []).map(j => ({ checkin: false, checkinEm: null, ...j }));
+        return novo;
+      });
+      if (mudou) localStorage.setItem(CHAVE, JSON.stringify(lista));
+      return lista;
+    } catch { return []; }
   },
   salvar(lista) { localStorage.setItem(CHAVE, JSON.stringify(lista)); },
   buscar(id) { return this.listar().find(t => t.id === id); },
   criar(dados) {
     const lista = this.listar();
-    const torneio = { id: novoId(), criadoEm: Date.now(), inscritos: [], ...dados };
+    const torneio = { id: novoId(), criadoEm: Date.now(), inscritos: [], status: "ativo", ...dados, codigo: gerarCodigo() };
     lista.push(torneio);
     this.salvar(lista);
     return torneio;
@@ -31,21 +42,49 @@ const db = {
     this.salvar(lista);
     return true;
   },
-  excluir(id) { this.salvar(this.listar().filter(t => t.id !== id)); },
+  encerrar(id) {
+    const lista = this.listar();
+    const t = lista.find(x => x.id === id);
+    if (!t) return false;
+    t.status = "encerrado";
+    t.encerradoEm = Date.now();
+    this.salvar(lista);
+    return true;
+  },
   inscrever(torneioId, jogador) {
     const lista = this.listar();
     const t = lista.find(x => x.id === torneioId);
     if (!t) return { ok: false, erro: "Torneio não encontrado." };
+    if (t.status === "encerrado") return { ok: false, erro: "Este torneio foi encerrado pelo lojista." };
     if (t.inscritos.some(j => j.idPlay === jogador.idPlay)) {
       return { ok: false, erro: "Esse ID Play! Pokémon já está inscrito neste torneio." };
     }
     if (t.inscritos.length >= t.maxJogadores + ESPERA) {
       return { ok: false, erro: "Este torneio está lotado: vagas e lista de espera preenchidas." };
     }
-    t.inscritos.push({ ...jogador, inscritoEm: Date.now() });
+    t.inscritos.push({ ...jogador, inscritoEm: Date.now(), checkin: false, checkinEm: null });
     this.salvar(lista);
     const posicaoEspera = t.inscritos.length - t.maxJogadores;
     return { ok: true, espera: posicaoEspera > 0, posicaoEspera };
+  },
+  checkin(torneioId, idPlayDigitado, codigoDigitado) {
+    const lista = this.listar();
+    const t = lista.find(x => x.id === torneioId);
+    if (!t) return { ok: false, erro: "Torneio não encontrado." };
+    if (t.status === "encerrado") return { ok: false, erro: "Este torneio foi encerrado pelo lojista." };
+    if (codigoDigitado.trim().toUpperCase() !== t.codigo) {
+      return { ok: false, erro: "Código de check-in incorreto." };
+    }
+    const jogador = t.inscritos.find(j => j.idPlay === idPlayDigitado.trim());
+    if (!jogador) return { ok: false, erro: "Não encontramos essa inscrição neste torneio." };
+    if (jogador.checkin) {
+      const hora = new Date(jogador.checkinEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return { ok: false, erro: `Check-in já feito às ${hora}.` };
+    }
+    jogador.checkin = true;
+    jogador.checkinEm = Date.now();
+    this.salvar(lista);
+    return { ok: true, nome: jogador.nome };
   },
   removerInscrito(torneioId, idPlay) {
     const lista = this.listar();
@@ -56,6 +95,14 @@ const db = {
 };
 
 /* ---------- Utilidades ---------- */
+function gerarCodigo() {
+  // sem 0, O, 1, I para evitar confusão ao digitar no balcão da loja
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let codigo = "";
+  for (let i = 0; i < 6; i++) codigo += chars[Math.floor(Math.random() * chars.length)];
+  return codigo;
+}
+
 function novoId() {
   return (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2))
     .replace(/-/g, "").slice(0, 10);
@@ -118,6 +165,26 @@ function listaPublica(t) {
     </section>`;
 }
 
+function blocoCheckin(t) {
+  return `
+    <section class="painel-form" style="margin:24px 0">
+      <h2>Check-in no local</h2>
+      <p class="sub" style="margin:0 0 14px">Já está inscrito? Ao chegar na loja, informe seu ID Play! Pokémon e o código do dia que o lojista vai te passar no balcão.</p>
+      <form data-form="checkin" data-id="${t.id}" novalidate>
+        <div class="linha-2">
+          <label>ID Play! Pokémon
+            <input name="idPlay" inputmode="numeric" maxlength="12" required placeholder="Somente números" />
+          </label>
+          <label>Código do dia
+            <input name="codigo" maxlength="6" required placeholder="Ex.: 7K9P2X" style="text-transform:uppercase" />
+          </label>
+        </div>
+        <p class="erro" id="erro" role="alert"></p>
+        <button class="btn principal" type="submit">Confirmar presença</button>
+      </form>
+    </section>`;
+}
+
 function formatarData(t) {
   const d = dataHora(t);
   const dia = d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short" });
@@ -142,12 +209,12 @@ function avisar(msg) {
   timerToast = setTimeout(() => el.classList.remove("visivel"), 2200);
 }
 
-async function copiar(texto) {
+async function copiar(texto, msg = "Link copiado") {
   try {
     await navigator.clipboard.writeText(texto);
-    avisar("Link copiado");
+    avisar(msg);
   } catch {
-    window.prompt("Copie o link:", texto);
+    window.prompt("Copie:", texto);
   }
 }
 
@@ -155,21 +222,37 @@ async function copiar(texto) {
 const app = document.getElementById("app");
 
 function cartaTorneio(t, { lojista }) {
-  const fechado = encerrado(t);
+  const finalizado = t.status === "encerrado";
+  const fechado = finalizado || encerrado(t);
   const qtd = t.inscritos.length;
   const s = situacao(t);
   const rotuloQtd = textoVagas(s);
-  const seloTexto = fechado ? "Encerrado" : rotuloSelo(s);
+  const seloTexto = finalizado ? "Histórico" : (fechado ? "Encerrado" : rotuloSelo(s));
+  const checkins = t.inscritos.filter(j => j.checkin).length;
 
-  const acoesLojista = `
+  const acoesLojistaAtivo = `
+    <div class="codigo-checkin">
+      <span class="rotulo" style="margin:0">Código de check-in</span>
+      <strong>${esc(t.codigo)}</strong>
+      <button class="btn pequeno" data-acao="copiar-codigo" data-id="${t.id}">Copiar código</button>
+    </div>
     <div class="acoes">
       <button class="btn principal pequeno" data-acao="copiar" data-id="${t.id}">Copiar link</button>
       <a class="btn pequeno" href="#/editar/${t.id}">Editar torneio</a>
-      <button class="btn perigo pequeno" data-acao="excluir" data-id="${t.id}">Excluir</button>
+      <button class="btn perigo pequeno" data-acao="encerrar" data-id="${t.id}">Encerrar</button>
     </div>
     <details class="inscritos">
-      <summary>Lista de inscritos (${qtd})</summary>
+      <summary>Lista de inscritos (${qtd}) · ${checkins} com check-in</summary>
       ${tabelaInscritos(t)}
+    </details>`;
+
+  const acoesLojistaHistorico = `
+    <div class="acoes">
+      <span class="sub" style="margin:0">Encerrado em ${esc(new Date(t.encerradoEm).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" }))}</span>
+    </div>
+    <details class="inscritos">
+      <summary>Lista de inscritos (${qtd}) · ${checkins} com check-in</summary>
+      ${tabelaInscritos(t, { somenteLeitura: true })}
     </details>`;
 
   const acoesPublico = `
@@ -188,11 +271,11 @@ function cartaTorneio(t, { lojista }) {
         ${lojista ? `<p>${rotuloQtd}</p>` : ""}
         ${t.descricao ? `<p>${esc(t.descricao)}</p>` : ""}
       </div>
-      ${lojista ? acoesLojista : acoesPublico}
+      ${lojista ? (finalizado ? acoesLojistaHistorico : acoesLojistaAtivo) : acoesPublico}
     </article>`;
 }
 
-function tabelaInscritos(t) {
+function tabelaInscritos(t, { somenteLeitura = false } = {}) {
   if (!t.inscritos.length) return `<p class="sub" style="margin:10px 0 0">Ninguém se inscreveu ainda. Copie o link e envie para os jogadores.</p>`;
   const linhas = t.inscritos.map((j, i) => `
     <tr>
@@ -201,12 +284,13 @@ function tabelaInscritos(t) {
       <td>${esc(j.idPlay)}</td>
       <td>${esc(j.anoNascimento)}</td>
       <td>${i < t.maxJogadores ? "Confirmado" : `Espera ${i - t.maxJogadores + 1}`}</td>
-      <td><button class="btn perigo pequeno" data-acao="remover" data-id="${t.id}" data-play="${esc(j.idPlay)}">Remover</button></td>
+      <td>${j.checkin ? `Sim · ${new Date(j.checkinEm).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}` : "Não"}</td>
+      <td>${somenteLeitura ? "" : `<button class="btn perigo pequeno" data-acao="remover" data-id="${t.id}" data-play="${esc(j.idPlay)}">Remover</button>`}</td>
     </tr>`).join("");
   return `
     <div class="tabela-wrap">
       <table>
-        <thead><tr><th>#</th><th>Nome</th><th>ID Play! Pokémon</th><th>Ano de nasc.</th><th>Situação</th><th></th></tr></thead>
+        <thead><tr><th>#</th><th>Nome</th><th>ID Play! Pokémon</th><th>Ano de nasc.</th><th>Situação</th><th>Check-in</th><th></th></tr></thead>
         <tbody>${linhas}</tbody>
       </table>
     </div>`;
@@ -214,7 +298,9 @@ function tabelaInscritos(t) {
 
 /* Painel do lojista */
 function telaPainel() {
-  const lista = db.listar().sort((a, b) => dataHora(a) - dataHora(b));
+  const lista = db.listar();
+  const ativos = lista.filter(t => t.status !== "encerrado").sort((a, b) => dataHora(a) - dataHora(b));
+  const historico = lista.filter(t => t.status === "encerrado").sort((a, b) => (b.encerradoEm || 0) - (a.encerradoEm || 0));
   const total = lista.reduce((s, t) => s + t.inscritos.length, 0);
 
   app.innerHTML = `
@@ -229,9 +315,15 @@ function telaPainel() {
       </div>
     </div>
     <br />
-    ${lista.length
-      ? `<section class="grade">${lista.map(t => cartaTorneio(t, { lojista: true })).join("")}</section>`
-      : `<div class="vazio"><p>Você ainda não criou nenhum torneio.</p><a class="btn principal" href="#/novo">Criar o primeiro torneio</a></div>`}
+    ${ativos.length
+      ? `<section class="grade">${ativos.map(t => cartaTorneio(t, { lojista: true })).join("")}</section>`
+      : `<div class="vazio"><p>Você não tem torneios ativos no momento.</p><a class="btn principal" href="#/novo">Criar torneio</a></div>`}
+
+    ${historico.length ? `
+      <h2 style="margin-top:40px">Histórico (${historico.length})</h2>
+      <p class="sub">Torneios encerrados ficam salvos aqui com a lista completa de inscritos.</p>
+      <section class="grade">${historico.map(t => cartaTorneio(t, { lojista: true })).join("")}</section>
+    ` : ""}
   `;
 }
 
@@ -283,6 +375,11 @@ function telaEditar(id) {
     <a class="voltar" href="#/">Voltar ao painel</a>
     <h1>Editar torneio</h1>
     <p class="sub">${qtd ? `As ${qtd} ${qtd === 1 ? "inscrição atual será mantida" : "inscrições atuais serão mantidas"}.` : "Ainda não há inscritos neste torneio."}</p>
+    <div class="codigo-checkin" style="margin-bottom:20px; border-radius:10px; border:2px solid var(--linha)">
+      <span class="rotulo" style="margin:0">Código de check-in</span>
+      <strong>${esc(t.codigo)}</strong>
+      <button type="button" class="btn pequeno" data-acao="copiar-codigo" data-id="${t.id}">Copiar código</button>
+    </div>
 
     <form class="painel-form" data-form="editar" data-id="${t.id}" novalidate>
       <label>Nome do torneio
@@ -317,7 +414,7 @@ function telaEditar(id) {
 
 /* Lista pública */
 function telaTorneios() {
-  const abertos = db.listar().filter(t => !encerrado(t)).sort((a, b) => dataHora(a) - dataHora(b));
+  const abertos = db.listar().filter(t => t.status !== "encerrado" && !encerrado(t)).sort((a, b) => dataHora(a) - dataHora(b));
   app.innerHTML = `
     <h1>Torneios abertos</h1>
     <p class="sub">Escolha um torneio para ver as regras e fazer sua inscrição.</p>
@@ -334,9 +431,10 @@ function telaTorneio(id) {
     app.innerHTML = `<div class="vazio"><p>Torneio não encontrado.</p><a class="btn" href="#/torneios">Ver torneios abertos</a></div>`;
     return;
   }
-  const fechado = encerrado(t);
+  const finalizado = t.status === "encerrado";
+  const fechado = finalizado || encerrado(t);
   const s = situacao(t);
-  const seloTexto = fechado ? "Encerrado" : rotuloSelo(s);
+  const seloTexto = finalizado ? "Histórico" : (fechado ? "Encerrado" : rotuloSelo(s));
   const anoAtual = new Date().getFullYear();
 
   app.innerHTML = `
@@ -356,7 +454,11 @@ function telaTorneio(id) {
       </div>
     </article>
 
-    ${fechado
+    ${(t.inscritos.length && !finalizado) ? blocoCheckin(t) : ""}
+
+    ${finalizado
+      ? `<div class="vazio"><p>Este torneio foi encerrado pelo lojista. Inscrições e check-in não estão mais disponíveis.</p></div>`
+      : fechado
       ? `<div class="vazio"><p>As inscrições deste torneio foram encerradas.</p></div>`
       : s.lotado
       ? `<div class="vazio"><p>Este torneio está lotado: as vagas e a lista de espera já foram preenchidas.</p></div>`
@@ -425,13 +527,14 @@ document.addEventListener("click", e => {
 
   if (acao === "copiar") copiar(linkDoTorneio(id));
   if (acao === "copiar-lista") copiar(linkDaLista());
+  if (acao === "copiar-codigo") copiar(db.buscar(id).codigo, "Código copiado");
 
-  if (acao === "excluir") {
+  if (acao === "encerrar") {
     const t = db.buscar(id);
-    if (t && confirm(`Excluir "${t.nome}"? As inscrições também serão apagadas.`)) {
-      db.excluir(id);
+    if (t && confirm(`Encerrar "${t.nome}"? Não será mais possível se inscrever ou fazer check-in. O torneio continua salvo no histórico, com a lista de inscritos.`)) {
+      db.encerrar(id);
       telaPainel();
-      avisar("Torneio excluído");
+      avisar("Torneio encerrado e movido para o histórico");
     }
   }
 
@@ -490,6 +593,19 @@ document.addEventListener("submit", e => {
     db.atualizar(original.id, { nome, data: dados.data, hora: dados.hora, descricao: dados.descricao.trim(), regras, maxJogadores: max });
     location.hash = "#/";
     avisar("Alterações salvas");
+  }
+
+  if (form.dataset.form === "checkin") {
+    const idPlay = dados.idPlay.trim();
+    const codigo = dados.codigo.trim();
+    if (!idPlay) return falhar("Informe seu ID Play! Pokémon.");
+    if (!codigo) return falhar("Informe o código do dia.");
+
+    const r = db.checkin(form.dataset.id, idPlay, codigo);
+    if (!r.ok) return falhar(r.erro);
+    falhar("");
+    form.reset();
+    avisar(`Check-in confirmado, ${r.nome.split(" ")[0]}!`);
   }
 
   if (form.dataset.form === "inscricao") {

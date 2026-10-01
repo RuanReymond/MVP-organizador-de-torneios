@@ -142,3 +142,13 @@ label small { display: block; margin-top: 6px; }
 .lista-publica h2 { margin-top: 20px; }
 .lista-publica ol { margin: 0; padding-left: 1.6em; }
 .lista-publica li { padding: 4px 0; border-bottom: 1px solid var(--linha); }
+
+/* Check-in */
+.codigo-checkin {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 10px 16px;
+  background: #eef3ff;
+  border-top: 1px solid var(--linha);
+  border-bottom: 1px solid var(--linha);
+}
+.codigo-checkin strong { font-size: 1.25rem; letter-spacing: .14em; font-family: ui-monospace, monospace; }
